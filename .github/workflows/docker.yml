@@ -54,3 +54,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # 打 tag 后把版本推送到 Telegram 频道 / 群组
+  notify:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/notify-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
