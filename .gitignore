@@ -1,0 +1,11 @@
+data/
+config.yaml
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.tmp-ui.js
+limecine
+*.log

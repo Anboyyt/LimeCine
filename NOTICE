@@ -1,0 +1,16 @@
+LimeCine
+========
+
+封面渲染样式来自开源项目 MoviePilot 插件「Emby媒体库封面生成」
+(mediacovergenerator v0.9.6)，作者 呀哈哈 / justzerock：
+
+    https://github.com/justzerock/MoviePilot-Plugins
+    plugins.v2/mediacovergenerator
+
+上游以 GNU General Public License v3.0 发布。本项目复制并修改了其中
+app/styles/ 与 app/utils/ 的渲染代码，因此整体按 GPL-3.0 授权，许可证全文见 LICENSE。
+
+本项目只保留渲染所需部分，去掉了 MoviePilot 框架依赖（app.plugins、app.chain 等），
+新增了独立的 Emby/Jellyfin/LiMe 客户端、HTTP 服务和页面。
+
+字体 fonts/chaohei.ttf、fonts/impact.ttf 同样取自上述仓库。

@@ -1,0 +1,1398 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LimeCine · 媒体库封面</title>
+<style>
+  /* ---------- 主题 ---------- */
+  :root,
+  [data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --panel-2: #fafbfc;
+    --line: #e6e9ee;
+    --line-2: #d8dde5;
+    --text: #1c2026;
+    --muted: #6b7280;
+    --blue: #2563eb;
+    --blue-2: #3b82f6;
+    --blue-soft: #eff4ff;
+    --ok: #16a34a;
+    --err: #dc2626;
+    --preview-bg: #eef1f5;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(16,24,40,.06);
+    --shadow-lg: 0 12px 40px rgba(16,24,40,.14);
+    --toast-bg: #1f2937;
+    --toast-text: #f9fafb;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --panel-2: #171b21;
+    --line: #23272f;
+    --line-2: #2e343e;
+    --text: #e8eaed;
+    --muted: #9aa3b2;
+    --blue: #3b82f6;
+    --blue-2: #60a5fa;
+    --blue-soft: #152238;
+    --ok: #4ade80;
+    --err: #f87171;
+    --preview-bg: #0e1115;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    --shadow-lg: 0 16px 48px rgba(0,0,0,.55);
+    --toast-bg: #f3f4f6;
+    --toast-text: #111827;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body {
+    margin: 0;
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition: background .2s, color .2s;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .spacer { flex: 1; }
+  .status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted);
+    padding: 5px 10px; border-radius: 99px;
+    background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #9aa3b2; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+  .dot.err { background: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 22%, transparent); }
+
+  .iconbtn {
+    width: 34px; height: 34px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 9px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text);
+    font-size: 15px; line-height: 1; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .iconbtn:hover { border-color: var(--line-2); background: var(--blue-soft); }
+
+  /* ---------- 布局 ---------- */
+  main {
+    display: grid;
+    grid-template-columns: 380px minmax(0, 1fr);
+    gap: 20px;
+    padding: 20px 24px 32px;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  main > * { min-width: 0; }
+  @media (max-width: 980px) {
+    main { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
+    header { padding: 11px 16px; }
+    header .sub { display: none; }
+    .preview { min-height: 280px; }
+  }
+
+  /* ---------- 面板 ---------- */
+  .panel, .batch {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+  }
+  .panel { padding: 20px; align-self: start; }
+  .batch { padding: 18px 20px; }
+
+  .group + .group {
+    margin-top: 20px; padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .group-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 650; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .group-title::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
+
+  label { display: block; font-size: 12px; color: var(--muted); margin: 13px 0 6px; }
+  label:first-of-type { margin-top: 0; }
+  input, select, textarea {
+    width: 100%; max-width: 100%;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--line-2);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
+  }
+  select { cursor: pointer; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; min-width: 0; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  .chk {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 11px; font-size: 12px; color: var(--muted);
+    cursor: pointer; user-select: none;
+  }
+  .chk input { width: auto; accent-color: var(--blue); }
+
+  /* ---------- 按钮 ---------- */
+  button {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 9px;
+    border: 0;
+    background: var(--blue);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, transform .06s, box-shadow .15s;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  button:hover:not(:disabled) { background: var(--blue-2); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: default; }
+  button[hidden] { display: none !important; }
+  button.ghost {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line-2);
+    margin-top: 9px;
+  }
+  button.ghost:hover:not(:disabled) { background: var(--blue-soft); border-color: var(--blue); }
+  button.danger { background: var(--err); }
+
+  .linkbtn {
+    background: none; border: 0; color: var(--blue);
+    font-size: 12px; cursor: pointer; padding: 4px 6px; width: auto;
+    font-weight: 500;
+  }
+  .linkbtn:hover { text-decoration: underline; background: none; }
+
+  /* ---------- 样式选择 ---------- */
+  .style-tabs {
+    display: flex; gap: 4px;
+    background: var(--panel-2);
+    padding: 4px; border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .style-tabs .tab {
+    flex: 1; width: auto; margin: 0; padding: 7px 10px;
+    background: transparent; color: var(--muted);
+    border: 0; border-radius: 7px;
+    font-size: 12px; font-weight: 600;
+  }
+  .style-tabs .tab:hover:not(:disabled) { background: transparent; color: var(--text); }
+  .style-tabs .tab.active {
+    background: var(--panel); color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  }
+  .style-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-top: 10px;
+  }
+  .style-card {
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--panel-2);
+    transition: border-color .15s, transform .08s;
+    user-select: none;
+  }
+  .style-card:hover { border-color: var(--line-2); }
+  .style-card:active { transform: scale(.985); }
+  .style-card.active {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
+  }
+  .style-card img {
+    width: 100%; display: block;
+    aspect-ratio: 16 / 9; object-fit: cover;
+    background: var(--preview-bg);
+  }
+  .style-card span {
+    display: block; padding: 6px 8px;
+    font-size: 11px; color: var(--muted); text-align: center;
+  }
+  .style-card.active span { color: var(--text); font-weight: 600; }
+
+  /* ---------- 高级参数 ---------- */
+  .adv {
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 13px;
+    background: var(--panel-2);
+  }
+  .adv summary {
+    font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
+    padding: 2px 0; list-style: none;
+  }
+  .adv summary::-webkit-details-marker { display: none; }
+  .adv summary::before { content: "▸"; display: inline-block; width: 14px; transition: transform .15s; }
+  .adv[open] summary::before { transform: rotate(90deg); }
+  .adv textarea {
+    font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+    resize: vertical;
+  }
+  .adv label:first-of-type { margin-top: 12px; }
+
+  /* ---------- 舞台 ---------- */
+  .stage { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .preview {
+    position: relative;
+    flex: 1;
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--preview-bg);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: background .2s;
+  }
+  .preview::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(45deg, color-mix(in srgb, var(--text) 3%, transparent) 25%, transparent 25%),
+      linear-gradient(-45deg, color-mix(in srgb, var(--text) 3%, transparent) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--text) 3%, transparent) 75%),
+      linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--text) 3%, transparent) 75%);
+    background-size: 18px 18px;
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+    opacity: .16;
+  }
+  .preview img {
+    position: relative; z-index: 1;
+    max-width: 100%;
+    max-height: 62vh;
+    display: block;
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+  }
+  .preview .placeholder {
+    position: relative; z-index: 1;
+    color: var(--muted); font-size: 13px; text-align: center; padding: 20px;
+  }
+  .preview .spinner {
+    position: relative; z-index: 1;
+    width: 34px; height: 34px;
+    border: 3px solid color-mix(in srgb, var(--text) 12%, transparent);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--muted);
+    min-height: 20px;
+    padding: 0 2px;
+  }
+  .toolbar .grow { flex: 1; }
+
+  /* ---------- 批量 ---------- */
+  .batch-head { display: flex; align-items: center; gap: 12px; }
+  .batch-head h2 { margin: 0; font-size: 14px; font-weight: 650; }
+  .batch-head .spacer { flex: 1; }
+  .batch-head button { width: auto; padding: 8px 18px; margin: 0; }
+
+  .prog-wrap { display: none; margin-top: 14px; }
+  .prog-wrap.show { display: block; }
+  .prog {
+    height: 7px; background: var(--panel-2); border-radius: 99px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .prog > i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--blue), var(--blue-2));
+    transition: width .35s ease;
+  }
+  .prog-text { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .job-items { margin-top: 10px; font-size: 12px; }
+  .job-items div {
+    padding: 5px 0; border-top: 1px solid var(--line);
+    display: flex; gap: 8px; align-items: baseline;
+  }
+  .job-items div:first-child { border-top: 0; }
+  .job-items .ok { color: var(--ok); }
+  .job-items .bad { color: var(--err); }
+
+  .sched {
+    border-top: 1px solid var(--line);
+    margin-top: 16px; padding-top: 14px;
+    font-size: 12px; color: var(--muted);
+  }
+  .sched-head { display: flex; align-items: center; gap: 10px; }
+  .sched-head button { width: auto; margin: 0; padding: 7px 14px; font-size: 12px; }
+  .sched .note { font-size: 11px; margin-top: 6px; }
+  .schedule-list { margin-top: 8px; }
+  .sched-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 7px 0; border-top: 1px solid var(--line);
+  }
+  .sched-row:first-child { border-top: 0; }
+  .sched-row b { color: var(--text); font-size: 13px; }
+  .sched-row .muted { color: var(--muted); }
+  .schedule-form {
+    margin-top: 12px;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 13px; background: var(--panel-2);
+  }
+  .schedule-form .row { margin-top: 0; }
+  .schedule-form .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .schedule-form .actions button { margin: 0; }
+  .check-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px 10px; margin: 6px 0 2px;
+  }
+  .check-grid label {
+    display: flex; align-items: center; gap: 6px;
+    margin: 0; font-size: 12px; color: var(--text);
+  }
+  .check-grid input { width: auto; accent-color: var(--blue); }
+
+  .msg { font-size: 12px; min-height: 18px; margin-top: 10px; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--ok); }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 28px;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--toast-bg); color: var(--toast-text);
+    padding: 11px 20px; border-radius: 10px; font-size: 13px;
+    opacity: 0; pointer-events: none; transition: all .22s;
+    box-shadow: 0 12px 32px rgba(0,0,0,.25); z-index: 30;
+    max-width: 82vw;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--err); color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>LimeCine</h1>
+    <span class="sub">Emby / Jellyfin / LiMe 媒体库封面</span>
+  </div>
+  <span class="spacer"></span>
+  <span class="status"><span class="dot" id="healthDot"></span><span id="healthText">检查中</span></span>
+  <button class="iconbtn" id="themeToggle" title="切换黑/白主题">☾</button>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="group">
+      <div class="group-title">连接</div>
+      <label>服务器</label>
+      <select id="server"><option value="__manual__">手动填写地址</option></select>
+      <div class="hint" id="serverHint">服务器、Key 和定时都在 config.yaml 里配置</div>
+
+      <div id="manualBox" hidden>
+        <label>服务器地址</label>
+        <input id="base" placeholder="http://192.168.5.133:886" autocomplete="off">
+        <div class="hint">填 LiMe / Emby / Jellyfin 的地址，不是本页面地址（887）</div>
+        <label>API Key</label>
+        <input id="key" type="password" placeholder="LiMe 面板 → API Key" autocomplete="off">
+        <div class="hint" id="keyHint">仅本次预览使用，不落盘</div>
+        <label class="chk"><input type="checkbox" id="remember"> 记住服务器地址和 Key</label>
+      </div>
+
+      <button class="ghost" id="loadLibs">加载媒体库</button>
+    </div>
+
+    <div class="group">
+      <div class="group-title">封面</div>
+      <label>媒体库</label>
+      <select id="lib"><option value="">先加载媒体库</option></select>
+
+      <label>样式</label>
+      <div class="style-tabs">
+        <button type="button" class="tab" data-tab="static">静态</button>
+        <button type="button" class="tab" data-tab="animated">动态</button>
+      </div>
+      <div class="style-grid" id="styleGrid"></div>
+      <select id="style" hidden>
+        <option value="static_1">静态 1 · 旋转卡片</option>
+        <option value="static_2">静态 2 · 斜切</option>
+        <option value="static_3">静态 3 · 三列海报</option>
+        <option value="static_4">静态 4 · 简约</option>
+        <option value="animated_1">动态 1 · 飞入</option>
+        <option value="animated_2">动态 2 · 对角</option>
+        <option value="animated_3">动态 3 · 滚动</option>
+        <option value="animated_4">动态 4 · 缩放</option>
+      </select>
+
+      <div class="row">
+        <div><label>中文标题</label><input id="tz" placeholder="默认用库名"></div>
+        <div><label>英文标题</label><input id="te" placeholder="可空"></div>
+      </div>
+      <div class="row">
+        <div><label>分辨率</label>
+          <select id="res">
+            <option>1080p</option><option>720p</option><option>480p</option>
+            <option>1440p</option><option>4k</option>
+          </select>
+        </div>
+      </div>
+
+      <details class="adv">
+        <summary>更多参数（默认已按 TgtoDrive 配置）</summary>
+        <div class="row">
+          <div><label>中文字号</label><input id="zhSize" type="number" step="5" value="170"></div>
+          <div><label>英文字号</label><input id="enSize" type="number" step="5" value="80"></div>
+        </div>
+        <div class="row">
+          <div><label>标题缩放</label><input id="scale" type="number" step="0.05" value="1"></div>
+          <div><label>柔化强度</label><input id="blur" type="number" step="5" value="50"></div>
+        </div>
+        <div class="row">
+          <div><label>颜色比例</label><input id="ratio" type="number" step="0.05" value="0.4"></div>
+          <div><label>动画时长(秒)</label><input id="animDur" type="number" step="1" value="8"></div>
+        </div>
+        <div class="row">
+          <div><label>动画帧率</label><input id="animFps" type="number" step="1" value="24"></div>
+          <div><label>动画分辨率</label><input id="animRes" value="320x180"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="animReduce"> 动画降色（文件更小）</label>
+        <div class="hint" id="configHint">库级标题、配色和样式覆盖在 config.yaml 的 libraries 段配置。</div>
+      </details>
+
+      <button id="preview" style="margin-top:16px">生成预览</button>
+      <button class="ghost" id="apply">生成并写回封面</button>
+      <div class="msg" id="msg"></div>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="preview" id="previewBox">
+      <span class="placeholder">生成结果会显示在这里</span>
+    </div>
+    <div class="toolbar">
+      <span id="meta"></span>
+      <span class="grow"></span>
+      <button class="linkbtn" id="download" hidden>下载图片</button>
+    </div>
+
+    <div class="batch">
+      <div class="batch-head">
+        <h2>全部媒体库</h2>
+        <label class="chk" style="margin:0"><input type="checkbox" id="force"> 强制重新生成</label>
+        <span class="spacer"></span>
+        <button id="genAll">全部生成并写回</button>
+      </div>
+      <div class="hint">按当前样式和分辨率生成并写回；未变化的库会自动跳过。</div>
+
+      <details class="adv" id="scopeBox">
+        <summary>生成范围（默认全部媒体库）</summary>
+        <div style="margin-top:8px">
+          <label class="chk"><input type="checkbox" id="scopeAll" checked> 全选</label>
+        </div>
+        <div id="batchLibs" class="check-grid"></div>
+      </details>
+
+      <div class="prog-wrap" id="progWrap">
+        <div class="prog"><i id="progBar"></i></div>
+        <div class="prog-text" id="progText"></div>
+        <div class="job-items" id="jobItems"></div>
+      </div>
+
+      <div class="sched">
+        <div class="sched-head">
+          <b style="color:var(--text);font-size:13px">定时任务</b>
+          <span class="spacer"></span>
+          <button class="ghost" id="newSchedule">+ 新建</button>
+        </div>
+        <div class="note" id="schedInfo">每个任务可以单独设置时间、服务器和媒体库。</div>
+        <div id="scheduleList" class="schedule-list"></div>
+
+        <div id="scheduleForm" class="schedule-form" hidden>
+          <div class="row">
+            <div><label>名称</label><input id="schName" placeholder="每天全量"></div>
+            <div><label>时间</label><input id="schTime" type="time" value="04:00"></div>
+          </div>
+          <div class="row">
+            <div><label>样式</label>
+              <select id="schStyle">
+                <option value="">跟随库配置</option>
+                <option value="static_1">静态 1 · 旋转卡片</option>
+                <option value="static_2">静态 2 · 斜切</option>
+                <option value="static_3">静态 3 · 三列海报</option>
+                <option value="static_4">静态 4 · 简约</option>
+                <option value="animated_1">动态 1 · 飞入</option>
+                <option value="animated_2">动态 2 · 对角</option>
+                <option value="animated_3">动态 3 · 滚动</option>
+                <option value="animated_4">动态 4 · 缩放</option>
+              </select>
+            </div>
+            <div><label>分辨率</label>
+              <select id="schRes">
+                <option value="">跟随库配置</option>
+                <option>480p</option><option>720p</option><option>1080p</option>
+                <option>1440p</option><option>4k</option>
+              </select>
+            </div>
+          </div>
+          <label>服务器 <span class="hint">不选 = 全部</span></label>
+          <div id="schServers" class="check-grid"></div>
+          <label>媒体库 <span class="hint">不选 = 全部，可多选</span></label>
+          <div id="schLibs" class="check-grid"></div>
+          <div class="row">
+            <label class="chk"><input type="checkbox" id="schEnabled" checked> 启用</label>
+            <label class="chk"><input type="checkbox" id="schForce"> 强制重新生成</label>
+          </div>
+          <div class="actions">
+            <button id="schSave">保存任务</button>
+            <button class="ghost" id="schCancel">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const LS = {
+  get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: k => { try { localStorage.removeItem(k); } catch {} },
+};
+
+let blobUrl = null;
+let lastMeta = null;
+let pollTimer = null;
+let servers = [];
+let cfgDefaults = {};
+let authToken = LS.get('lc_token');
+let allLibraries = [];
+let batchSelected = new Set();
+let batchInitialized = false;
+let scheduleTasks = [];
+let scheduleSource = 'config';
+let editingScheduleId = null;
+
+async function apiFetch(url, opts = {}) {
+  const o = { ...opts, headers: { ...(opts.headers || {}) } };
+  if (authToken) o.headers['X-LC-Token'] = authToken;
+  let r = await fetch(url, o);
+  if (r.status === 401) {
+    const t = prompt('请输入访问令牌（LC_TOKEN）');
+    if (t) {
+      authToken = t;
+      LS.set('lc_token', t);
+      o.headers['X-LC-Token'] = t;
+      r = await fetch(url, o);
+    }
+  }
+  return r;
+}
+
+/* ---------- 主题 ---------- */
+
+function applyTheme(t, persist = true) {
+  document.documentElement.dataset.theme = t;
+  $('themeToggle').textContent = t === 'dark' ? '☀' : '☾';
+  $('themeToggle').title = t === 'dark' ? '切换到白色主题' : '切换到黑色主题';
+  if (persist) LS.set('lc_theme', t);
+}
+
+function initTheme() {
+  const saved = LS.get('lc_theme');
+  if (saved === 'dark' || saved === 'light') {
+    applyTheme(saved, false);
+    return;
+  }
+  const prefersLight = window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: light)').matches;
+  applyTheme(prefersLight ? 'light' : 'dark', false);
+}
+
+$('themeToggle').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+};
+
+/* ---------- 样式卡片 ---------- */
+
+const STYLE_META = {
+  static_1: '旋转卡片',
+  static_2: '斜切',
+  static_3: '三列海报',
+  static_4: '简约',
+  animated_1: '飞入',
+  animated_2: '对角',
+  animated_3: '滚动',
+  animated_4: '缩放',
+};
+const STYLE_TABS = {
+  static: ['static_1', 'static_2', 'static_3', 'static_4'],
+  animated: ['animated_1', 'animated_2', 'animated_3', 'animated_4'],
+};
+let currentTab = 'static';
+
+function renderStyleCards() {
+  const list = STYLE_TABS[currentTab] || STYLE_TABS.static;
+  const cur = $('style').value;
+  $('styleGrid').innerHTML = list.map(s => {
+    const ext = s.startsWith('animated') ? 'gif' : 'png';
+    return `<div class="style-card${s === cur ? ' active' : ''}" data-style="${s}">
+      <img src="/static/previews/${s}.${ext}" alt="${STYLE_META[s]}" loading="lazy">
+      <span>${STYLE_META[s]}</span></div>`;
+  }).join('');
+  $('styleGrid').querySelectorAll('.style-card').forEach(el => {
+    el.onclick = () => selectStyle(el.dataset.style);
+  });
+}
+
+function updateTabs() {
+  document.querySelectorAll('.style-tabs .tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === currentTab));
+}
+
+function selectStyle(s) {
+  if (!s) return;
+  $('style').value = s;
+  currentTab = s.startsWith('animated') ? 'animated' : 'static';
+  updateTabs();
+  renderStyleCards();
+}
+
+document.querySelectorAll('.style-tabs .tab').forEach(t => {
+  t.onclick = () => { currentTab = t.dataset.tab; updateTabs(); renderStyleCards(); };
+});
+
+/* ---------- 基础 UI ---------- */
+
+function toast(text, isErr = false) {
+  const t = $('toast');
+  t.textContent = text;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { t.className = 'toast'; }, 3200);
+}
+
+function msg(text, cls = '') {
+  const m = $('msg');
+  m.textContent = text || '';
+  m.className = 'msg ' + cls;
+}
+
+function busy(on, which) {
+  for (const id of ['loadLibs', 'preview', 'apply', 'genAll']) {
+    $(id).disabled = on;
+  }
+  if (on && which) $(which).textContent = '处理中…';
+}
+
+function restoreBusy() {
+  $('loadLibs').textContent = '加载媒体库';
+  $('preview').textContent = '生成预览';
+  $('apply').textContent = '生成并写回封面';
+  $('genAll').textContent = '全部生成并写回';
+}
+
+function showPlaceholder(text) {
+  const box = $('previewBox');
+  if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+  box.innerHTML = '';
+  const p = document.createElement('span');
+  p.className = 'placeholder';
+  p.textContent = text;
+  box.appendChild(p);
+  $('download').hidden = true;
+  $('meta').textContent = '';
+}
+
+function showSpinner() {
+  const box = $('previewBox');
+  if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+  box.innerHTML = '';
+  const s = document.createElement('div');
+  s.className = 'spinner';
+  box.appendChild(s);
+  $('download').hidden = true;
+}
+
+/* ---------- 本地配置 ---------- */
+
+function saveLocal() {
+  if (!$('remember').checked) {
+    LS.del('lc_base'); LS.del('lc_key');
+    return;
+  }
+  LS.set('lc_base', $('base').value.trim());
+  LS.set('lc_key', $('key').value.trim());
+}
+
+function loadLocal() {
+  const base = LS.get('lc_base');
+  const key = LS.get('lc_key');
+  if (base) $('base').value = base;
+  if (key) $('key').value = key;
+}
+
+/* ---------- 服务器与配置 ---------- */
+
+function selectedServer() {
+  const v = $('server').value;
+  return v === '__manual__' ? '' : v;
+}
+
+function updateManualBox() {
+  $('manualBox').hidden = $('server').value !== '__manual__';
+}
+
+function renderServerOptions() {
+  const sel = $('server');
+  const prev = sel.value;
+  sel.innerHTML = '';
+  for (const s of servers) {
+    const o = document.createElement('option');
+    o.value = s.id;
+    o.textContent = (s.name || s.id) + ' — ' + s.url + (s.ok ? '' : '（未连接）');
+    sel.appendChild(o);
+  }
+  const m = document.createElement('option');
+  m.value = '__manual__';
+  m.textContent = servers.length ? '手动填写地址…' : '手动填写地址';
+  sel.appendChild(m);
+  if (prev && prev !== '__manual__' && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  else if (servers.length) sel.value = servers[0].id;
+  else sel.value = '__manual__';
+  updateManualBox();
+}
+
+function applyDefaults(d) {
+  if (!d) return;
+  cfgDefaults = d;
+  selectStyle(d.style || 'animated_1');
+  if (d.resolution) $('res').value = d.resolution;
+  if (d.zh_font_size != null) $('zhSize').value = d.zh_font_size;
+  if (d.en_font_size != null) $('enSize').value = d.en_font_size;
+  if (d.title_scale != null) $('scale').value = d.title_scale;
+  if (d.blur_size != null) $('blur').value = d.blur_size;
+  if (d.color_ratio != null) $('ratio').value = d.color_ratio;
+  if (d.animation_duration != null) $('animDur').value = d.animation_duration;
+  if (d.animation_fps != null) $('animFps').value = d.animation_fps;
+  if (d.animation_resolution) $('animRes').value = d.animation_resolution;
+  $('animReduce').checked = !!d.animation_reduce_colors;
+}
+
+async function loadConfig() {
+  try {
+    const r = await apiFetch('/api/servers', { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    servers = j.servers || [];
+    renderServerOptions();
+    const cfg = await apiFetch('/api/config', { cache: 'no-store' }).then(x => x.json());
+    applyDefaults(cfg.defaults);
+    $('serverHint').textContent = cfg.source
+      ? `配置来源：${cfg.source}`
+      : '服务器、Key 和定时都在 config.yaml 里配置';
+    if (cfg.error) msg(cfg.error, 'err');
+    await Promise.all([loadAllLibs(), loadSchedules()]);
+  } catch (e) {
+    msg('读取配置失败：' + e.message, 'err');
+    renderServerOptions();
+  }
+}
+
+/* ---------- 海报库多选 ---------- */
+
+function libKey(l) {
+  return `${l.server}/${l.id}`;
+}
+
+async function loadAllLibs() {
+  try {
+    const r = await apiFetch('/api/libraries', { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok) return;
+    const before = new Set(allLibraries.map(libKey));
+    const fetched = j.libraries || [];
+    // 新出现的库默认加入批量范围；用户手动取消的保持取消
+    if (batchInitialized) {
+      fetched.forEach(l => {
+        if (!before.has(libKey(l))) batchSelected.add(libKey(l));
+      });
+    }
+    allLibraries = fetched;
+    renderBatchLibs();
+    if (!$('scheduleForm').hidden) renderScheduleLibs();
+  } catch {}
+}
+
+function renderBatchLibs() {
+  const box = $('batchLibs');
+  if (!allLibraries.length) {
+    box.innerHTML = '<span class="hint">没有可用的媒体库</span>';
+    $('scopeAll').checked = false;
+    return;
+  }
+  box.innerHTML = allLibraries.map(l => {
+    const key = libKey(l);
+    return `<label><input type="checkbox" value="${escapeHtml(key)}"> ` +
+      `${escapeHtml(l.server_name || l.server)} · ${escapeHtml(l.name)}</label>`;
+  }).join('');
+  if (!batchInitialized) {
+    allLibraries.forEach(l => batchSelected.add(libKey(l)));
+    batchInitialized = true;
+  }
+  box.querySelectorAll('input').forEach(el => {
+    el.checked = batchSelected.has(el.value);
+    el.onchange = () => {
+      if (el.checked) batchSelected.add(el.value);
+      else batchSelected.delete(el.value);
+      updateScopeAll();
+    };
+  });
+  updateScopeAll();
+}
+
+function updateScopeAll() {
+  const boxes = [...$('batchLibs').querySelectorAll('input')];
+  const all = boxes.length > 0 && boxes.every(b => b.checked);
+  $('scopeAll').checked = all;
+  $('scopeAll').indeterminate = boxes.some(b => b.checked) && !all;
+}
+
+function batchLibraryIds() {
+  if ($('scopeAll').checked) return [];
+  return [...batchSelected];
+}
+
+$('scopeAll').onchange = () => {
+  const on = $('scopeAll').checked;
+  $('batchLibs').querySelectorAll('input').forEach(el => {
+    el.checked = on;
+    if (on) batchSelected.add(el.value);
+    else batchSelected.delete(el.value);
+  });
+  $('scopeAll').indeterminate = false;
+};
+
+/* ---------- 定时任务 ---------- */
+
+function serverName(id) {
+  const s = servers.find(x => x.id === id);
+  return s ? (s.name || s.id) : id;
+}
+
+function describeTask(t) {
+  const sv = (t.servers && t.servers.length)
+    ? t.servers.map(serverName).join('、')
+    : '全部服务器';
+  const lb = (t.libraries && t.libraries.length)
+    ? `${t.libraries.length} 个库`
+    : '全部媒体库';
+  const st = t.style || '跟随库配置';
+  return `${sv} · ${lb} · ${st}${t.force ? ' · 强制' : ''}`;
+}
+
+async function loadSchedules() {
+  try {
+    const r = await apiFetch('/api/schedules', { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok) return;
+    scheduleTasks = j.tasks || [];
+    scheduleSource = j.source || 'config';
+    renderSchedules();
+    $('schedInfo').textContent = scheduleSource === 'config'
+      ? '当前来自 config.yaml；在面板保存一次后由这里管理。'
+      : '每个任务可以单独设置时间、服务器和媒体库。';
+  } catch {}
+}
+
+function renderSchedules() {
+  const box = $('scheduleList');
+  if (!scheduleTasks.length) {
+    box.innerHTML = '<div class="hint">还没有定时任务</div>';
+    return;
+  }
+  box.innerHTML = scheduleTasks.map(t => `
+    <div class="sched-row">
+      <span class="dot ${t.enabled ? 'ok' : ''}"></span>
+      <b>${escapeHtml(t.time)}</b>
+      <span>${escapeHtml(t.name)}</span>
+      <span class="muted">${escapeHtml(describeTask(t))}${t.next_run ? ' · 下次 ' + escapeHtml(t.next_run) : ''}</span>
+      <span class="spacer"></span>
+      <button class="linkbtn" data-act="run" data-id="${t.id}">立即运行</button>
+      <button class="linkbtn" data-act="edit" data-id="${t.id}">编辑</button>
+      <button class="linkbtn" data-act="del" data-id="${t.id}">删除</button>
+    </div>`).join('');
+}
+
+function renderScheduleServers(selected) {
+  const sel = new Set(selected || []);
+  $('schServers').innerHTML = servers.length
+    ? servers.map(s => `<label><input type="checkbox" value="${s.id}"` +
+        `${sel.has(s.id) ? ' checked' : ''}> ${escapeHtml(s.name || s.id)}</label>`).join('')
+    : '<span class="hint">没有配置服务器</span>';
+}
+
+function renderScheduleLibs(selected) {
+  const current = selected !== undefined
+    ? new Set(selected)
+    : new Set([...$('schLibs').querySelectorAll('input:checked')].map(x => x.value));
+  if (!allLibraries.length) {
+    $('schLibs').innerHTML = '<span class="hint">没有可用的媒体库</span>';
+    return;
+  }
+  $('schLibs').innerHTML = allLibraries.map(l => {
+    const key = libKey(l);
+    return `<label><input type="checkbox" value="${escapeHtml(key)}"` +
+      `${current.has(key) ? ' checked' : ''}> ` +
+      `${escapeHtml(l.server_name || l.server)} · ${escapeHtml(l.name)}</label>`;
+  }).join('');
+}
+
+function openScheduleForm(task) {
+  task = task || {
+    name: '每天全量', enabled: true, time: '04:00',
+    servers: [], libraries: [], style: '', resolution: '', force: false,
+  };
+  editingScheduleId = task.id || null;
+  $('schName').value = task.name || '';
+  $('schTime').value = task.time || '04:00';
+  $('schStyle').value = task.style || '';
+  $('schRes').value = task.resolution || '';
+  $('schEnabled').checked = task.enabled !== false;
+  $('schForce').checked = !!task.force;
+  renderScheduleServers(task.servers || []);
+  renderScheduleLibs(task.libraries || []);
+  $('scheduleForm').hidden = false;
+  $('schName').focus();
+}
+
+function closeScheduleForm() {
+  $('scheduleForm').hidden = true;
+  editingScheduleId = null;
+}
+
+async function saveSchedule() {
+  const payload = {
+    name: $('schName').value.trim() || '定时任务',
+    enabled: $('schEnabled').checked,
+    time: $('schTime').value || '04:00',
+    servers: [...$('schServers').querySelectorAll('input:checked')].map(x => x.value),
+    libraries: [...$('schLibs').querySelectorAll('input:checked')].map(x => x.value),
+    style: $('schStyle').value,
+    resolution: $('schRes').value,
+    force: $('schForce').checked,
+  };
+  const url = editingScheduleId ? `/api/schedules/${editingScheduleId}` : '/api/schedules';
+  $('schSave').disabled = true;
+  try {
+    const r = await apiFetch(url, {
+      method: editingScheduleId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    closeScheduleForm();
+    await loadSchedules();
+    toast(j.next_run ? `已保存，下次运行 ${j.next_run}` : '定时任务已保存');
+  } catch (e) {
+    toast('保存失败：' + e.message, true);
+  } finally {
+    $('schSave').disabled = false;
+  }
+}
+
+async function runSchedule(id) {
+  try {
+    const r = await apiFetch(`/api/schedules/${id}/run`, { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    $('progWrap').classList.add('show');
+    $('progBar').style.width = '0%';
+    $('progText').textContent = '任务已启动…';
+    $('jobItems').innerHTML = '';
+    startPolling();
+    toast('定时任务已启动');
+  } catch (e) {
+    toast('启动失败：' + e.message, true);
+  }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('删除这个定时任务？')) return;
+  try {
+    const r = await apiFetch(`/api/schedules/${id}`, { method: 'DELETE' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    await loadSchedules();
+    toast('已删除');
+  } catch (e) {
+    toast('删除失败：' + e.message, true);
+  }
+}
+
+/* ---------- 健康检查 ---------- */
+
+async function checkHealth() {
+  const dot = $('healthDot'), text = $('healthText');
+  try {
+    const r = await fetch('/health', { cache: 'no-store' });
+    const j = await r.json();
+    dot.className = 'dot ' + (j.ok ? 'ok' : 'err');
+    text.textContent = j.ok ? `${j.name || 'LimeCine'} ${j.version || ''}`.trim() : '服务异常';
+  } catch {
+    dot.className = 'dot err';
+    text.textContent = '无法连接';
+  }
+}
+
+/* ---------- 加载库 ---------- */
+
+async function loadLibs() {
+  const sid = selectedServer();
+  const base = $('base').value.trim(), key = $('key').value.trim();
+  if (!sid && !base) { msg('先在 config.yaml 配置服务器，或手动填写地址', 'err'); return; }
+  if (!sid && !key) { msg('手动模式需要填 API Key', 'err'); return; }
+  saveLocal();
+  busy(true, 'loadLibs');
+  msg('加载中…');
+  try {
+    const q = new URLSearchParams();
+    if (sid) q.set('server', sid);
+    else q.set('base_url', base);
+    const headers = {};
+    if (!sid && key) headers['X-LimeCine-Key'] = key;
+    const r = await apiFetch('/api/libraries?' + q, { cache: 'no-store', headers });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    const sel = $('lib');
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">请选择媒体库</option>';
+    for (const l of j.libraries) {
+      const o = document.createElement('option');
+      o.value = l.id;
+      o.textContent = l.name + (l.type ? ' · ' + l.type : '') +
+        (l.server_name ? ' · ' + l.server_name : '');
+      o.dataset.name = l.name;
+      o.dataset.server = l.server || '';
+      sel.appendChild(o);
+    }
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+    const errs = j.errors || [];
+    if (!j.libraries.length && errs.length) {
+      throw new Error(errs.map(e => `${e.server_name || e.server}: ${e.error}`).join('；'));
+    }
+    msg(`已加载 ${j.libraries.length} 个库` + (errs.length ? '（部分服务器失败）' : ''), errs.length ? 'err' : 'ok');
+    await loadAllLibs();
+    if (!sel.value && sel.options.length === 2) {
+      sel.selectedIndex = 1;
+      sel.onchange();
+    }
+  } catch (e) {
+    let text = e.message;
+    if (base && base.replace(/\/+$/, '') === location.origin) {
+      text = '这是封面服务自己的地址（887），不是媒体服务器。请改填 LiMe 的地址，例如 http://192.168.5.133:886。';
+    } else if (/404/.test(e.message)) {
+      text = `${e.message}。该地址没有 Emby/Jellyfin 接口，检查端口是否正确（LiMe 一般是 886）`;
+    }
+    msg('加载失败：' + text, 'err');
+    toast('加载失败：' + text, true);
+  } finally {
+    busy(false);
+    restoreBusy();
+  }
+}
+
+$('lib').onchange = () => {
+  const sel = $('lib');
+  const name = sel.options[sel.selectedIndex]?.dataset?.name || '';
+  if (name && !$('tz').value.trim()) $('tz').value = name;
+};
+
+/* ---------- 单库生成 ---------- */
+
+function payload(apply) {
+  const sel = $('lib');
+  const sid = selectedServer();
+  const p = {
+    library_id: sel.value,
+    library_name: sel.options[sel.selectedIndex]?.dataset?.name || '',
+    style: $('style').value,
+    title_zh: $('tz').value.trim(),
+    title_en: $('te').value.trim(),
+    resolution: $('res').value,
+    force: $('force').checked,
+    apply,
+    params: {
+      zh_font_size: parseFloat($('zhSize').value) || 170,
+      en_font_size: parseFloat($('enSize').value) || 80,
+      title_scale: parseFloat($('scale').value) || 1,
+      blur_size: parseInt($('blur').value, 10) || 50,
+      color_ratio: parseFloat($('ratio').value) || 0.4,
+      animation_duration: parseInt($('animDur').value, 10) || 8,
+      animation_fps: parseInt($('animFps').value, 10) || 24,
+      animation_resolution: $('animRes').value.trim() || '320x180',
+      animation_reduce_colors: $('animReduce').checked,
+    },
+  };
+  if (sid) p.server = sid;
+  else {
+    p.base_url = $('base').value.trim();
+    p.api_key = $('key').value.trim();
+  }
+  return p;
+}
+
+async function run(apply) {
+  const p = payload(apply);
+  if (!p.library_id) { msg('先加载并选择媒体库', 'err'); return; }
+  if (!p.server && !p.base_url) { msg('服务器没选或没填', 'err'); return; }
+  if (!p.server && !p.api_key) { msg('手动模式需要填 API Key', 'err'); return; }
+  saveLocal();
+  busy(true, apply ? 'apply' : 'preview');
+  showSpinner();
+  msg(apply ? '生成并写回中…' : '生成中…');
+  const t0 = performance.now();
+
+  try {
+    const r = await apiFetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p),
+    });
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+
+    if (apply) {
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+      if (j.applied === false) {
+        msg('已生成，但该服务器在 config.yaml 里设置了 write_back: false', 'err');
+        toast('已生成，未写回', true);
+        showPlaceholder('已生成，未写回');
+      } else if (j.skipped) {
+        msg(`内容和上次一致，已跳过（${secs}s）`, 'ok');
+        toast('未变化，已跳过');
+        showPlaceholder('未变化，已跳过');
+      } else {
+        msg(`已写回媒体库封面（${secs}s）`, 'ok');
+        toast('已写回，刷新客户端即可看到');
+        showPlaceholder('已写回媒体库封面');
+      }
+      return;
+    }
+
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || `HTTP ${r.status}`);
+    }
+    const blob = await r.blob();
+    const box = $('previewBox');
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(blob);
+    const img = document.createElement('img');
+    img.src = blobUrl;
+    box.innerHTML = '';
+    box.appendChild(img);
+
+    $('download').hidden = false;
+    lastMeta = { blob, ext: blob.type.includes('apng') ? 'apng' : 'png' };
+    $('meta').textContent =
+      `${secs}s · ${(blob.size / 1048576).toFixed(2)} MB · ${p.style} · ${p.resolution}`;
+    msg('预览完成', 'ok');
+  } catch (e) {
+    msg('失败：' + e.message, 'err');
+    toast('失败：' + e.message, true);
+    showPlaceholder('生成失败');
+  } finally {
+    busy(false);
+    restoreBusy();
+  }
+}
+
+$('download').onclick = () => {
+  if (!lastMeta) return;
+  const sel = $('lib');
+  const name = (sel.options[sel.selectedIndex]?.dataset?.name || 'cover')
+    .replace(/[\\/:*?"<>|]/g, '_');
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = `${name}-${$('style').value}.${lastMeta.ext}`;
+  a.click();
+};
+
+/* ---------- 全量生成 ---------- */
+
+async function genAll() {
+  const sid = selectedServer();
+  const base = $('base').value.trim();
+  const key = $('key').value.trim();
+  if (!sid && (!base || !key)) {
+    msg('先在 config.yaml 配置服务器，或手动填写地址和 Key', 'err');
+    return;
+  }
+  if (sid && allLibraries.length && !$('scopeAll').checked && batchSelected.size === 0) {
+    msg('至少选一个媒体库', 'err');
+    return;
+  }
+  saveLocal();
+  busy(true, 'genAll');
+  msg('');
+
+  try {
+    const body = {
+      style: $('style').value,
+      resolution: $('res').value,
+      force: $('force').checked,
+      apply: true,
+      library_ids: sid && allLibraries.length ? batchLibraryIds() : [],
+    };
+    if (!sid) { body.base_url = base; body.api_key = key; }
+    const r = await apiFetch('/api/generate-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    $('progWrap').classList.add('show');
+    $('progBar').style.width = '0%';
+    $('progText').textContent = '任务已启动…';
+    $('jobItems').innerHTML = '';
+    startPolling();
+  } catch (e) {
+    msg('启动失败：' + e.message, 'err');
+    toast('启动失败：' + e.message, true);
+  } finally {
+    busy(false);
+    restoreBusy();
+  }
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollJob, 1500);
+  pollJob();
+}
+
+async function pollJob() {
+  try {
+    const r = await apiFetch('/api/job', { cache: 'no-store' });
+    const { job } = await r.json();
+    if (!job) return;
+    renderJob(job);
+    if (!job.running) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      const skipped = job.skipped ? `，跳过 ${job.skipped}` : '';
+      toast(job.failed
+        ? `批量完成：成功 ${job.ok}${skipped}，失败 ${job.failed}`
+        : `批量完成：成功 ${job.ok}${skipped}`, job.failed > 0);
+    }
+  } catch {}
+}
+
+function renderJob(job) {
+  $('progWrap').classList.add('show');
+  const total = job.total || 0;
+  const done = job.done || 0;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  $('progBar').style.width = pct + '%';
+  $('progText').textContent = job.running
+    ? `${done}/${total} · 正在生成：${job.current || '…'}`
+    : `上次：${done}/${total} · ${job.finished_at || ''}（成功 ${job.ok}，失败 ${job.failed}）`;
+
+  const items = (job.items || []).slice(-6).reverse();
+  $('jobItems').innerHTML = items.map(it => {
+    const label = (it.server_name ? it.server_name + ' / ' : '') + it.name;
+    if (it.skipped) {
+      return `<div class="ok">↷ <span>${escapeHtml(label)}</span> · 未变化，跳过</div>`;
+    }
+    const size = it.applied === false
+      ? ' · 仅生成，未写回'
+      : ` · ${(it.bytes / 1048576).toFixed(2)} MB`;
+    return `<div class="${it.ok ? 'ok' : 'bad'}">${it.ok ? '✓' : '✗'} <span>${escapeHtml(label)}</span>` +
+      (it.ok ? ` · ${it.seconds}s${size}` : ` · ${escapeHtml(it.error)}`) +
+      `</div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+/* ---------- 事件绑定 ---------- */
+
+$('remember').onchange = saveLocal;
+$('base').oninput = saveLocal;
+$('key').oninput = saveLocal;
+$('server').onchange = () => { updateManualBox(); if (selectedServer()) loadLibs(); };
+$('loadLibs').onclick = loadLibs;
+$('preview').onclick = () => run(false);
+$('apply').onclick = () => run(true);
+$('genAll').onclick = genAll;
+$('newSchedule').onclick = () => openScheduleForm(null);
+$('schSave').onclick = saveSchedule;
+$('schCancel').onclick = closeScheduleForm;
+$('scheduleList').onclick = (e) => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const task = scheduleTasks.find(t => t.id === btn.dataset.id);
+  if (!task) return;
+  if (btn.dataset.act === 'edit') openScheduleForm(task);
+  else if (btn.dataset.act === 'del') deleteSchedule(task.id);
+  else if (btn.dataset.act === 'run') runSchedule(task.id);
+};
+$('key').addEventListener('keydown', e => { if (e.key === 'Enter') loadLibs(); });
+
+initTheme();
+updateTabs();
+renderStyleCards();
+loadLocal();
+loadConfig().then(() => {
+  selectStyle($('style').value);
+  if (selectedServer()) loadLibs();
+});
+checkHealth();
+setInterval(checkHealth, 30000);
+pollJob();
+</script>
+</body>
+</html>

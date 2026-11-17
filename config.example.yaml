@@ -1,0 +1,73 @@
+# LimeCine 配置
+#
+# 所有字符串都支持 ${ENV} 和 ${ENV:-默认值} 展开，Key 不必写进仓库。
+# 最小用法：只填 servers 里的一台服务器，其余全部用默认值。
+#
+# 配置文件位置：compose 挂载到 /app/config.yaml；
+# 也可以放到数据目录（./data/config.yaml），或用 LC_CONFIG 指定。
+
+servers:
+  lime:
+    url: http://192.168.5.133:886
+    api_key: ${LIME_API_KEY}
+    # name: LiMe               # 显示名，默认用上面的 key
+    # write_back: true         # 是否允许写回库封面
+    # enabled: true
+    # schedule: "04:30"        # 单独覆盖定时；也可写成 {enabled: true, time: "04:30"}
+
+  # art:
+  #   url: http://192.168.5.133:888
+  #   api_key: ${ART_LIME_API_KEY}
+
+defaults:
+  style: animated_1            # static_1..4 / animated_1..4
+  resolution: 1080p            # 720p / 1080p / 1440p / 4k 或 1920x1080
+  zh_font_size: 170
+  en_font_size: 80
+  title_scale: 1.0
+  blur_size: 50
+  color_ratio: 0.4
+  bg_color_mode: auto          # auto / custom
+  custom_bg_color: ""
+  animation_duration: 8
+  animation_fps: 24
+  animation_format: apng       # apng / gif
+  animation_resolution: 320x180
+  animation_reduce_colors: false
+
+# 首次启动的默认定时任务。面板里保存过定时任务后，以 data/schedules.json 为准。
+schedule:
+  enabled: false
+  time: "04:00"                # 多台服务器可以各自覆盖
+
+# 库级覆盖。匹配优先级（越靠后越具体，后者覆盖前者）：
+#   type:movies  ->  "库名"  ->  "服务器ID/库名"
+# 可用字段：title / subtitle / color / style / resolution / write_back / enabled
+libraries:
+  # 电影
+  动画电影: {title: [动画电影, MOVIES], color: "#2E3A46"}
+  国产电影: {title: [国产电影, MOVIES], color: "#3E2E2E"}
+  欧美电影: {title: [欧美电影, MOVIES], color: "#2E344A"}
+  亚太电影: {title: [亚太电影, MOVIES], color: "#3A2E3E"}
+  # 动漫
+  国产动漫: {title: [国产动漫, ANIME], color: "#3A2E4A"}
+  日韩动漫: {title: [日韩动漫, ANIME], color: "#2E4A4A"}
+  欧美动漫: {title: [欧美动漫, ANIME], color: "#2F3E55"}
+  # 剧集
+  欧美剧: {title: [欧美剧, TV SHOWS], color: "#2E3A4A"}
+  日韩剧: {title: [日韩剧, TV SHOWS], color: "#4A2E3E"}
+  国产剧: {title: [国产剧, TV SHOWS], color: "#2E4A34"}
+  亚太剧: {title: [亚太剧, TV SHOWS], color: "#3A2E4A"}
+  # 其他
+  儿童节目: {title: [儿童节目, KIDS], color: "#4A3E2E"}
+  纪录片: {title: [纪录片, DOCUMENTARY], color: "#3A3F44"}
+  演唱会: {title: [演唱会, CONCERTS], color: "#2E4A46"}
+  综艺: {title: [综艺, VARIETY], color: "#4A3A2E"}
+
+  # 只对 art 这台服务器的纪录片生效
+  # art/纪录片:
+  #   style: static_4
+
+  # 按类型兜底
+  # "type:movies":
+  #   style: static_3

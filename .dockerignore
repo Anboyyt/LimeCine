@@ -1,0 +1,12 @@
+.git
+.github
+data
+config.yaml
+.env
+.venv
+venv
+__pycache__
+*.py[cod]
+tests
+*.md
+!NOTICE

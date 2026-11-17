@@ -1,0 +1,20 @@
+services:
+  limecine:
+    build: .
+    image: lixxh/limecine:local
+    container_name: limecine
+    restart: unless-stopped
+    ports:
+      - "887:887"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data:/app/data
+    environment:
+      TZ: Asia/Shanghai
+      LC_PORT: "887"
+      MALLOC_ARENA_MAX: "2"
+      PYTHONMALLOC: "malloc"
+    env_file:
+      - path: .env
+        required: false
+    mem_limit: 512m

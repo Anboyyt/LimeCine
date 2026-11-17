@@ -1,0 +1,23 @@
+services:
+  limecine:
+    image: lixxh/limecine:latest
+    container_name: limecine
+    restart: unless-stopped
+    ports:
+      - "887:887"
+    volumes:
+      # 先把 config.example.yaml 复制成 config.yaml 再启动
+      - ./config.yaml:/app/config.yaml:ro
+      # 状态、海报缓存（可以整个备份）
+      - ./data:/app/data
+    environment:
+      TZ: Asia/Shanghai
+      # 限制 glibc arena 数量，减少 Python 长时间运行的内存碎片
+      MALLOC_ARENA_MAX: "2"
+      PYTHONMALLOC: "malloc"
+    # config.yaml 里的 ${VAR} 从这里取值；文件不存在也能启动
+    env_file:
+      - path: .env
+        required: false
+    # 单次生成峰值实测约 290MB，给足余量但不放任
+    mem_limit: 512m
