@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "LimeCine"
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FONT_DIR = Path(os.getenv("LC_FONT_DIR", str(BASE_DIR / "fonts")))

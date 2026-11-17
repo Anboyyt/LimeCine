@@ -152,6 +152,34 @@ schedule: {enabled: true, time: "03:00"}
             settings._config = None
             settings._signature = ("", 0.0)
 
+    def test_ui_servers_merge_and_save(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = _write(d, "servers:\n  lime: {url: 'http://x:886', api_key: k}\n")
+            servers_file = Path(d) / "servers.json"
+            with mock.patch.object(settings, "SERVERS_FILE", servers_file):
+                settings.save_ui_servers([settings.Server(
+                    id="art", url="http://y:888", api_key="k2", name="Art", source="ui",
+                )])
+                cfg = settings.load_config(path, env={}, write_migrated=False)
+                self.assertEqual([s.id for s in cfg.servers], ["lime", "art"])
+                self.assertEqual(cfg.servers[1].source, "ui")
+                self.assertEqual(settings.load_ui_servers()[0].api_key, "k2")
+                self.assertEqual(
+                    settings.make_server_id("Art", "http://y:888", {"art"}), "art-2"
+                )
+
+    def test_ui_server_id_collision_is_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = _write(d, "servers:\n  lime: {url: 'http://x:886', api_key: k}\n")
+            servers_file = Path(d) / "servers.json"
+            with mock.patch.object(settings, "SERVERS_FILE", servers_file):
+                settings.save_ui_servers([settings.Server(
+                    id="lime", url="http://z:999", api_key="k3", source="ui",
+                )])
+                cfg = settings.load_config(path, env={}, write_migrated=False)
+                self.assertEqual(len(cfg.servers), 1)
+                self.assertEqual(cfg.servers[0].url, "http://x:886")
+
     def test_view_has_no_key(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             path = _write(d, """

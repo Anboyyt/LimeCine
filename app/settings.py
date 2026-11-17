@@ -13,8 +13,10 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+import tempfile
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,6 +60,9 @@ DEFAULT_SCHEDULE: Dict[str, Any] = {
     "time": "04:00",
 }
 
+# 面板添加的服务器。和 config.yaml 的 servers 合并使用，config.yaml 里的只读。
+SERVERS_FILE = Path(os.getenv("LC_SERVERS_FILE", str(DATA_DIR / "servers.json")))
+
 _ENV_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
 
@@ -70,6 +75,7 @@ class Server:
     enabled: bool = True
     write_back: bool = True
     schedule: Dict[str, Any] = field(default_factory=dict)
+    source: str = "config"
 
     def public(self) -> Dict[str, Any]:
         return {
@@ -79,6 +85,7 @@ class Server:
             "has_key": bool(self.api_key),
             "enabled": self.enabled,
             "write_back": self.write_back,
+            "source": self.source,
         }
 
 
@@ -214,7 +221,7 @@ def _normalize_params(raw: Any) -> Dict[str, Any]:
 # ---------------------------------------------------------------- 解析
 
 
-def _parse_servers(raw: Any) -> List[Server]:
+def _parse_servers(raw: Any, source: str = "config") -> List[Server]:
     items: List[Tuple[Any, Dict[str, Any]]] = []
     if isinstance(raw, dict):
         pairs: Iterable[Tuple[Any, Any]] = raw.items()
@@ -253,8 +260,63 @@ def _parse_servers(raw: Any) -> List[Server]:
             enabled=_bool(val.get("enabled"), True),
             write_back=_bool(val.get("write_back"), True),
             schedule=dict(sched) if isinstance(sched, dict) else {},
+            source=source,
         ))
     return servers
+
+
+def load_ui_servers() -> List[Server]:
+    if not SERVERS_FILE.is_file():
+        return []
+    try:
+        data = json.loads(SERVERS_FILE.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("读取 servers.json 失败: %s", e)
+        return []
+    raw = data.get("servers") if isinstance(data, dict) else data
+    if not isinstance(raw, (dict, list)):
+        return []
+    return _parse_servers(raw, source="ui")
+
+
+def save_ui_servers(servers: List[Server]) -> None:
+    SERVERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    items = [
+        {
+            "id": s.id,
+            "name": s.name or s.id,
+            "url": s.url,
+            "api_key": s.api_key,
+            "enabled": s.enabled,
+            "write_back": s.write_back,
+        }
+        for s in servers
+        if s.source == "ui"
+    ]
+    data = {"version": 1, "servers": items}
+    tmp = None
+    try:
+        fd, tmp = tempfile.mkstemp(dir=str(SERVERS_FILE.parent), prefix=".servers-")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, SERVERS_FILE)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("保存 servers.json 失败: %s", e)
+        if tmp and os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
+def make_server_id(name: str, url: str, existing: Iterable[str]) -> str:
+    base = _slug(name or url)
+    taken = set(existing)
+    sid = base
+    n = 2
+    while sid in taken:
+        sid = f"{base}-{n}"
+        n += 1
+    return sid
 
 
 def _parse_libraries(raw: Any) -> Dict[str, Dict[str, Any]]:
@@ -415,6 +477,17 @@ def load_config(
         url = _norm_url(env.get("LC_URL"))
         servers = [Server(id=_slug(url), url=url, api_key=env.get("LC_API_KEY", ""), name="default")]
 
+    # 合并面板添加的服务器（data/servers.json）
+    known = {s.id for s in servers}
+    for ui_server in load_ui_servers():
+        if ui_server.id in known:
+            logger.warning(
+                "servers.json 中的服务器 %s 与 config.yaml 重名，已忽略", ui_server.id
+            )
+            continue
+        servers.append(ui_server)
+        known.add(ui_server.id)
+
     # 校验
     for s in servers:
         if not s.api_key:
@@ -528,7 +601,7 @@ def view(cfg: AppConfig) -> Dict[str, Any]:
 
 _lock = threading.RLock()
 _config: Optional[AppConfig] = None
-_signature: Tuple[str, float] = ("", 0.0)
+_signature: Tuple[str, float, float] = ("", 0.0, 0.0)
 
 
 def find_config_path() -> Optional[Path]:
@@ -547,7 +620,11 @@ def get_config(reload: bool = False) -> AppConfig:
             mtime = path.stat().st_mtime if path else 0.0
         except OSError:
             mtime = 0.0
-        sig = (str(path) if path else "", mtime)
+        try:
+            servers_mtime = SERVERS_FILE.stat().st_mtime if SERVERS_FILE.is_file() else 0.0
+        except OSError:
+            servers_mtime = 0.0
+        sig = (str(path) if path else "", mtime, servers_mtime)
         if _config is None or reload or sig != _signature:
             _config = load_config()
             _signature = sig

@@ -131,6 +131,15 @@ class ScheduleIn(BaseModel):
     force: bool = False
 
 
+class ServerIn(BaseModel):
+    id: str = ""
+    name: str = ""
+    url: str
+    api_key: str = ""
+    enabled: bool = True
+    write_back: bool = True
+
+
 # ---------------------------------------------------------------- 辅助
 
 
@@ -257,21 +266,107 @@ def reload_config() -> dict:
 @app.get("/api/servers")
 def servers() -> dict:
     cfg = settings.get_config()
-    enabled = cfg.enabled_servers()
+    enabled = [s for s in cfg.servers if s.enabled]
     results: List[Dict[str, Any]] = []
     if enabled:
         with ThreadPoolExecutor(max_workers=min(8, len(enabled))) as pool:
             futures = [pool.submit(_probe, s) for s in enabled]
             for fut in as_completed(futures):
                 results.append(fut.result())
-        order = {s.id: i for i, s in enumerate(enabled)}
-        results.sort(key=lambda x: order.get(x["id"], 99))
+    for server in cfg.servers:
+        if not server.enabled:
+            results.append({
+                **server.public(),
+                "ok": False,
+                "server_name": "",
+                "version": "",
+                "product": "",
+                "error": "已禁用",
+            })
+    order = {s.id: i for i, s in enumerate(cfg.servers)}
+    results.sort(key=lambda x: order.get(x["id"], 99))
     return {
         "servers": results,
         "source": cfg.source,
         "error": cfg.error,
         "schedule": cfg.schedule,
     }
+
+
+@app.post("/api/servers")
+def add_server(req: ServerIn) -> dict:
+    cfg = settings.get_config()
+    url = settings._norm_url(req.url)
+    if not url:
+        raise HTTPException(status_code=400, detail="服务器地址不能为空")
+    if not req.api_key:
+        raise HTTPException(status_code=400, detail="API Key 不能为空")
+
+    existing = {s.id for s in cfg.servers}
+    if req.id:
+        sid = settings._slug(req.id)
+        if sid in existing:
+            raise HTTPException(status_code=409, detail=f"服务器 ID 已存在: {sid}")
+    else:
+        sid = settings.make_server_id(req.name, url, existing)
+
+    server = settings.Server(
+        id=sid,
+        url=url,
+        api_key=req.api_key,
+        name=req.name or sid,
+        enabled=req.enabled,
+        write_back=req.write_back,
+        source="ui",
+    )
+    ui_servers = settings.load_ui_servers()
+    ui_servers.append(server)
+    settings.save_ui_servers(ui_servers)
+    settings.reload_config()
+    with _probe_lock:
+        _probe_cache.pop(sid, None)
+    logger.info("新增服务器 id=%s url=%s", sid, url)
+    return server.public()
+
+
+@app.put("/api/servers/{server_id}")
+def update_server(server_id: str, req: ServerIn) -> dict:
+    ui_servers = settings.load_ui_servers()
+    target = next((s for s in ui_servers if s.id == server_id), None)
+    if not target:
+        raise HTTPException(
+            status_code=404,
+            detail="只能修改面板添加的服务器；config.yaml 里的服务器请直接编辑文件",
+        )
+    url = settings._norm_url(req.url or target.url)
+    if not url:
+        raise HTTPException(status_code=400, detail="服务器地址不能为空")
+    target.url = url
+    target.name = req.name or target.name
+    if req.api_key:
+        target.api_key = req.api_key
+    target.enabled = req.enabled
+    target.write_back = req.write_back
+    settings.save_ui_servers(ui_servers)
+    settings.reload_config()
+    with _probe_lock:
+        _probe_cache.pop(server_id, None)
+    logger.info("更新服务器 id=%s url=%s", server_id, url)
+    return target.public()
+
+
+@app.delete("/api/servers/{server_id}")
+def delete_server(server_id: str) -> dict:
+    ui_servers = settings.load_ui_servers()
+    remaining = [s for s in ui_servers if s.id != server_id]
+    if len(remaining) == len(ui_servers):
+        raise HTTPException(status_code=404, detail="只能删除面板添加的服务器")
+    settings.save_ui_servers(remaining)
+    settings.reload_config()
+    with _probe_lock:
+        _probe_cache.pop(server_id, None)
+    logger.info("删除服务器 id=%s", server_id)
+    return {"ok": True}
 
 
 @app.get("/api/libraries")

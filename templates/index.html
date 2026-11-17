@@ -419,13 +419,34 @@
     <div class="group">
       <div class="group-title">连接</div>
       <label>服务器</label>
-      <select id="server"><option value="__manual__">手动填写地址</option></select>
-      <div class="hint" id="serverHint">服务器、Key 和定时都在 config.yaml 里配置</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="server" style="flex:1"><option value="__manual__">临时连接（不保存）</option></select>
+        <button class="iconbtn" id="addServer" title="添加服务器" style="flex:0 0 34px">+</button>
+      </div>
+      <div class="hint" id="serverHint">面板添加的服务器保存在 data/servers.json</div>
+      <div class="hint" id="serverManage"></div>
+
+      <div id="serverForm" class="schedule-form" hidden>
+        <div class="row">
+          <div><label>名称</label><input id="srvName" placeholder="Art-Lime"></div>
+          <div><label>地址</label><input id="srvUrl" placeholder="http://192.168.1.10:888" autocomplete="off"></div>
+        </div>
+        <label>API Key</label>
+        <input id="srvKey" type="password" placeholder="LiMe 面板 → API Key" autocomplete="off">
+        <div class="row">
+          <label class="chk"><input type="checkbox" id="srvWriteBack" checked> 允许写回库封面</label>
+          <label class="chk"><input type="checkbox" id="srvEnabled" checked> 启用</label>
+        </div>
+        <div class="actions">
+          <button id="srvSave">保存服务器</button>
+          <button class="ghost" id="srvCancel">取消</button>
+        </div>
+      </div>
 
       <div id="manualBox" hidden>
         <label>服务器地址</label>
         <input id="base" placeholder="http://192.168.1.10:886" autocomplete="off">
-        <div class="hint">填 LiMe / Emby / Jellyfin 的地址，不是本页面地址（887）</div>
+        <div class="hint">临时连接用，填 LiMe / Emby / Jellyfin 的地址，不是本页面地址（887）</div>
         <label>API Key</label>
         <input id="key" type="password" placeholder="LiMe 面板 → API Key" autocomplete="off">
         <div class="hint" id="keyHint">仅本次预览使用，不落盘</div>
@@ -607,6 +628,7 @@ let batchInitialized = false;
 let scheduleTasks = [];
 let scheduleSource = 'config';
 let editingScheduleId = null;
+let editingServerId = null;
 
 async function apiFetch(url, opts = {}) {
   const o = { ...opts, headers: { ...(opts.headers || {}) } };
@@ -785,18 +807,111 @@ function renderServerOptions() {
   sel.innerHTML = '';
   for (const s of servers) {
     const o = document.createElement('option');
+    const suffix = s.enabled === false ? '（已禁用）' : (s.ok ? '' : '（未连接）');
     o.value = s.id;
-    o.textContent = (s.name || s.id) + ' — ' + s.url + (s.ok ? '' : '（未连接）');
+    o.textContent = (s.name || s.id) + ' — ' + s.url + suffix;
     sel.appendChild(o);
   }
   const m = document.createElement('option');
   m.value = '__manual__';
-  m.textContent = servers.length ? '手动填写地址…' : '手动填写地址';
+  m.textContent = servers.length ? '临时连接（不保存）…' : '临时连接（不保存）';
   sel.appendChild(m);
   if (prev && prev !== '__manual__' && [...sel.options].some(o => o.value === prev)) sel.value = prev;
   else if (servers.length) sel.value = servers[0].id;
   else sel.value = '__manual__';
   updateManualBox();
+  updateServerManage();
+}
+
+function updateServerManage() {
+  const box = $('serverManage');
+  const s = servers.find(x => x.id === selectedServer());
+  if (!s) {
+    box.innerHTML = '临时连接不会保存；长期使用请点 + 添加服务器。';
+    return;
+  }
+  if (s.source === 'ui') {
+    box.innerHTML = '面板添加 · ' +
+      '<button class="linkbtn" data-srv="edit">编辑</button>' +
+      '<button class="linkbtn" data-srv="del">删除</button>';
+  } else {
+    box.innerHTML = '来自 config.yaml，修改请直接编辑文件。';
+  }
+}
+
+function openServerForm(server) {
+  if (server && server.source !== 'ui') {
+    toast('config.yaml 里的服务器请直接编辑文件', true);
+    return;
+  }
+  editingServerId = server ? server.id : null;
+  $('srvName').value = server ? (server.name || '') : '';
+  $('srvUrl').value = server ? (server.url || '') : '';
+  $('srvKey').value = '';
+  $('srvKey').placeholder = server ? '留空则沿用已保存的 Key' : 'LiMe 面板 → API Key';
+  $('srvWriteBack').checked = server ? server.write_back !== false : true;
+  $('srvEnabled').checked = server ? server.enabled !== false : true;
+  $('serverForm').hidden = false;
+  $('manualBox').hidden = true;
+  $('srvName').focus();
+}
+
+function closeServerForm() {
+  $('serverForm').hidden = true;
+  editingServerId = null;
+  updateManualBox();
+}
+
+async function saveServer() {
+  const isEdit = !!editingServerId;
+  const payload = {
+    name: $('srvName').value.trim(),
+    url: $('srvUrl').value.trim(),
+    api_key: $('srvKey').value.trim(),
+    write_back: $('srvWriteBack').checked,
+    enabled: $('srvEnabled').checked,
+  };
+  if (!payload.url) { toast('填服务器地址', true); return; }
+  if (!isEdit && !payload.api_key) { toast('填 API Key', true); return; }
+  const url = isEdit ? `/api/servers/${editingServerId}` : '/api/servers';
+  $('srvSave').disabled = true;
+  try {
+    const r = await apiFetch(url, {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    closeServerForm();
+    await loadConfig();
+    $('server').value = j.id;
+    updateManualBox();
+    updateServerManage();
+    await loadLibs();
+    toast(isEdit ? '服务器已更新' : '服务器已添加');
+  } catch (e) {
+    toast('保存失败：' + e.message, true);
+  } finally {
+    $('srvSave').disabled = false;
+  }
+}
+
+async function deleteServer(serverId) {
+  if (!serverId) return;
+  if (!confirm('从面板删除这台服务器？（不会影响 config.yaml）')) return;
+  try {
+    const r = await apiFetch(`/api/servers/${serverId}`, { method: 'DELETE' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+    await loadConfig();
+    updateManualBox();
+    updateServerManage();
+    if (selectedServer()) await loadLibs();
+    toast('服务器已删除');
+  } catch (e) {
+    toast('删除失败：' + e.message, true);
+  }
 }
 
 function applyDefaults(d) {
@@ -825,8 +940,8 @@ async function loadConfig() {
     const cfg = await apiFetch('/api/config', { cache: 'no-store' }).then(x => x.json());
     applyDefaults(cfg.defaults);
     $('serverHint').textContent = cfg.source
-      ? `配置来源：${cfg.source}`
-      : '服务器、Key 和定时都在 config.yaml 里配置';
+      ? `配置来源：${cfg.source}；面板添加的服务器在 data/servers.json`
+      : '面板添加的服务器在 data/servers.json';
     if (cfg.error) msg(cfg.error, 'err');
     await Promise.all([loadAllLibs(), loadSchedules()]);
   } catch (e) {
@@ -1363,7 +1478,22 @@ function escapeHtml(s) {
 $('remember').onchange = saveLocal;
 $('base').oninput = saveLocal;
 $('key').oninput = saveLocal;
-$('server').onchange = () => { updateManualBox(); if (selectedServer()) loadLibs(); };
+$('server').onchange = () => {
+  updateManualBox();
+  updateServerManage();
+  if (selectedServer()) loadLibs();
+};
+$('addServer').onclick = () => openServerForm(null);
+$('srvSave').onclick = saveServer;
+$('srvCancel').onclick = closeServerForm;
+$('serverManage').onclick = (e) => {
+  const btn = e.target.closest('button[data-srv]');
+  if (!btn) return;
+  const s = servers.find(x => x.id === selectedServer());
+  if (!s) return;
+  if (btn.dataset.srv === 'edit') openServerForm(s);
+  else if (btn.dataset.srv === 'del') deleteServer(s.id);
+};
 $('loadLibs').onclick = loadLibs;
 $('preview').onclick = () => run(false);
 $('apply').onclick = () => run(true);

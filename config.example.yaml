@@ -5,6 +5,9 @@
 #
 # 推荐放到数据目录：./data/config.yaml（标准 compose 默认）
 # 也可以挂载到 /app/config.yaml，或用 LC_CONFIG 指定。
+#
+# 也可以在 Web UI 里点「+」添加服务器，保存到 data/servers.json；
+# 这里的 servers 适合写进配置管理/仓库。
 
 servers:
   lime:
