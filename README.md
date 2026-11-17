@@ -18,8 +18,9 @@
 ## 快速开始
 
 ```bash
-cp config.example.yaml config.yaml
-# 编辑 config.yaml，至少填一台服务器的 url 和 api_key
+mkdir -p data
+cp config.example.yaml data/config.yaml
+# 编辑 data/config.yaml，至少填一台服务器的 url 和 api_key
 docker compose up -d
 ```
 
@@ -28,14 +29,16 @@ docker compose up -d
 不用 compose 也可以：
 
 ```bash
+mkdir -p data
+cp config.example.yaml data/config.yaml
 docker run -d --name limecine -p 887:887 \
-  -v "$PWD/config.yaml:/app/config.yaml:ro" \
   -v "$PWD/data:/app/data" \
   -e LIME_API_KEY=你的Key \
+  --restart unless-stopped \
   lixxh/limecine:latest
 ```
 
-> `config.yaml` 里的 api_key 支持 `${ENV}` 展开，Key 不用写进文件。`env_file: .env` 会把变量注入容器。
+> `config.yaml` 里的 api_key 支持 `${ENV}` 展开，Key 不用写进文件。用 compose 时把 Key 放进 `.env`（`cp .env.example .env`），`env_file` 会注入容器。
 
 ## 配置
 
@@ -100,6 +103,8 @@ libraries:
 ```
 
 ### 配置文件位置
+
+推荐放在数据目录：`./data/config.yaml`（标准 compose 就是这么用的）。
 
 查找顺序：
 

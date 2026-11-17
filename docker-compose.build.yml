@@ -1,20 +1,42 @@
+# 从源码构建（不依赖 Docker Hub）
+#
+#   mkdir -p data
+#   cp config.example.yaml data/config.yaml
+#   docker compose -f docker-compose.build.yml up -d --build
+#
+# 国内网络建议先把基础镜像拉到本地：
+#   docker pull python:3.12-slim
+
 services:
   limecine:
     build: .
     image: lixxh/limecine:local
     container_name: limecine
     restart: unless-stopped
+
     ports:
       - "887:887"
+
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
       - ./data:/app/data
-    environment:
-      TZ: Asia/Shanghai
-      LC_PORT: "887"
-      MALLOC_ARENA_MAX: "2"
-      PYTHONMALLOC: "malloc"
+
     env_file:
       - path: .env
         required: false
+
+    environment:
+      TZ: Asia/Shanghai
+      MALLOC_ARENA_MAX: "2"
+      PYTHONMALLOC: "malloc"
+      LC_CONCURRENCY: "1"
+
     mem_limit: 512m
+    init: true
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"

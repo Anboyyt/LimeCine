@@ -3,8 +3,8 @@
 # 所有字符串都支持 ${ENV} 和 ${ENV:-默认值} 展开，Key 不必写进仓库。
 # 最小用法：只填 servers 里的一台服务器，其余全部用默认值。
 #
-# 配置文件位置：compose 挂载到 /app/config.yaml；
-# 也可以放到数据目录（./data/config.yaml），或用 LC_CONFIG 指定。
+# 推荐放到数据目录：./data/config.yaml（标准 compose 默认）
+# 也可以挂载到 /app/config.yaml，或用 LC_CONFIG 指定。
 
 servers:
   lime:

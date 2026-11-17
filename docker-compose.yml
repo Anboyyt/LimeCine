@@ -1,23 +1,72 @@
+# LimeCine 标准部署
+#
+# 1. 准备配置（配置、状态、缓存都在 data/ 下）：
+#      mkdir -p data
+#      cp config.example.yaml data/config.yaml
+#
+# 2. 如果 config.yaml 里用了 ${LIME_API_KEY} 这种写法：
+#      cp .env.example .env    # 然后填入 Key
+#
+# 3. 启动：
+#      docker compose up -d
+#
+# 4. 打开 http://<NAS-IP>:887
+
 services:
   limecine:
+    # 固定版本更稳，例如 lixxh/limecine:0.4.0
+    # 想跟随更新就用 latest，升级时 docker compose pull && docker compose up -d
     image: lixxh/limecine:latest
     container_name: limecine
     restart: unless-stopped
+
+    # 宿主机端口:容器端口。887 被占用就改左边，例如 "1887:887"
     ports:
       - "887:887"
+
     volumes:
-      # 先把 config.example.yaml 复制成 config.yaml 再启动
-      - ./config.yaml:/app/config.yaml:ro
-      # 状态、海报缓存（可以整个备份）
+      # config.yaml / state.json / schedules.json / 海报缓存都在这里
+      # 备份时整个 data 目录一起打包即可
       - ./data:/app/data
+      # 如果想把配置单独放，取消下面这行并设置 LC_CONFIG=/app/config.yaml
+      # - ./config.yaml:/app/config.yaml:ro
+
+    # 给 config.yaml 里的 ${VAR} 提供值；没有 .env 也能启动
+    # 需要 Docker Compose 2.24+；更老的版本请删掉这段，改用 environment
+    env_file:
+      - path: .env
+        required: false
+
     environment:
       TZ: Asia/Shanghai
       # 限制 glibc arena 数量，减少 Python 长时间运行的内存碎片
       MALLOC_ARENA_MAX: "2"
       PYTHONMALLOC: "malloc"
-    # config.yaml 里的 ${VAR} 从这里取值；文件不存在也能启动
-    env_file:
-      - path: .env
-        required: false
-    # 单次生成峰值实测约 290MB，给足余量但不放任
+      # 批量并发，默认 1；改成 2 时建议把 mem_limit 提到 768m 以上
+      LC_CONCURRENCY: "1"
+      # 对外暴露时强烈建议设置：所有 /api/* 需要 X-LC-Token 或 Bearer
+      # LC_TOKEN: "change-me"
+      # 容器内监听端口，一般不用改
+      # LC_PORT: "887"
+
+    # 单次生成峰值约 275-290MB；512m 有余量，并发 2 建议 768m
+    # 单机 Compose 用 mem_limit；Swarm 请换成 deploy.resources.limits.memory
     mem_limit: 512m
+
+    # 让 PID 1 正确处理信号，docker stop 时不会留下子进程
+    init: true
+    # 批量生成可能正在跑，给 30 秒收尾
+    stop_grace_period: 30s
+
+    # 容器内不需要提权
+    security_opt:
+      - no-new-privileges:true
+
+    # 限制日志大小，避免长期运行把磁盘写满
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+    # 镜像自带 HEALTHCHECK，这里不重复写
