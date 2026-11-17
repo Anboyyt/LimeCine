@@ -424,7 +424,7 @@
 
       <div id="manualBox" hidden>
         <label>服务器地址</label>
-        <input id="base" placeholder="http://192.168.5.133:886" autocomplete="off">
+        <input id="base" placeholder="http://192.168.1.10:886" autocomplete="off">
         <div class="hint">填 LiMe / Emby / Jellyfin 的地址，不是本页面地址（887）</div>
         <label>API Key</label>
         <input id="key" type="password" placeholder="LiMe 面板 → API Key" autocomplete="off">
@@ -1127,7 +1127,7 @@ async function loadLibs() {
   } catch (e) {
     let text = e.message;
     if (base && base.replace(/\/+$/, '') === location.origin) {
-      text = '这是封面服务自己的地址（887），不是媒体服务器。请改填 LiMe 的地址，例如 http://192.168.5.133:886。';
+      text = '这是封面服务自己的地址（887），不是媒体服务器。请改填 LiMe 的地址，例如 http://192.168.1.10:886。';
     } else if (/404/.test(e.message)) {
       text = `${e.message}。该地址没有 Emby/Jellyfin 接口，检查端口是否正确（LiMe 一般是 886）`;
     }

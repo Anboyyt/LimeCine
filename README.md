@@ -15,30 +15,75 @@
 
 ---
 
-## 快速开始
+## 部署
+
+### 方式一：Docker Compose（推荐）
+
+新建一个目录，下载配置模板：
 
 ```bash
-mkdir -p data
-cp config.example.yaml data/config.yaml
+mkdir -p limecine/data && cd limecine
+curl -fsSL https://raw.githubusercontent.com/Anboyyt/LimeCine/main/config.example.yaml -o data/config.yaml
 # 编辑 data/config.yaml，至少填一台服务器的 url 和 api_key
+```
+
+新建 `docker-compose.yml`，粘贴下面这段：
+
+```yaml
+services:
+  limecine:
+    image: lixxh/limecine:latest
+    container_name: limecine
+    restart: unless-stopped
+    ports:
+      - "887:887"
+    volumes:
+      - ./data:/app/data
+    environment:
+      TZ: Asia/Shanghai
+      MALLOC_ARENA_MAX: "2"
+      PYTHONMALLOC: "malloc"
+      LC_CONCURRENCY: "1"
+    mem_limit: 512m
+```
+
+启动：
+
+```bash
 docker compose up -d
 ```
 
 打开 `http://<NAS-IP>:887`，选服务器、选库、选样式，先预览，满意后写回。
 
-不用 compose 也可以：
+> 配置、`state.json`、定时任务和海报缓存都在 `./data`，备份整个目录即可。
+> 完整版（日志轮转、`init`、安全选项）见仓库里的 [`docker-compose.yml`](docker-compose.yml)。
+
+### 方式二：docker run
 
 ```bash
 mkdir -p data
-cp config.example.yaml data/config.yaml
-docker run -d --name limecine -p 887:887 \
-  -v "$PWD/data:/app/data" \
-  -e LIME_API_KEY=你的Key \
+curl -fsSL https://raw.githubusercontent.com/Anboyyt/LimeCine/main/config.example.yaml -o data/config.yaml
+# 编辑 data/config.yaml 后：
+docker run -d --name limecine \
   --restart unless-stopped \
+  -p 887:887 \
+  -v "$PWD/data:/app/data" \
+  -e TZ=Asia/Shanghai \
+  -e LIME_API_KEY=你的Key \
   lixxh/limecine:latest
 ```
 
-> `config.yaml` 里的 api_key 支持 `${ENV}` 展开，Key 不用写进文件。用 compose 时把 Key 放进 `.env`（`cp .env.example .env`），`env_file` 会注入容器。
+### 方式三：源码构建
+
+```bash
+git clone https://github.com/Anboyyt/LimeCine.git
+cd LimeCine
+mkdir -p data
+cp config.example.yaml data/config.yaml
+docker compose -f docker-compose.build.yml up -d --build
+```
+
+> `config.yaml` 里的 api_key 支持 `${ENV}` 展开，Key 不用写进文件。用 Compose 时把 Key 放进 `.env`（`cp .env.example .env`），`env_file` 会注入容器。
 
 ## 配置
 
@@ -47,10 +92,10 @@ docker run -d --name limecine -p 887:887 \
 ```yaml
 servers:
   lime:
-    url: http://192.168.5.133:886
+    url: http://192.168.1.10:886
     api_key: ${LIME_API_KEY}
   art:
-    url: http://192.168.5.133:888
+    url: http://192.168.1.10:888
     api_key: ${ART_LIME_API_KEY}
 
 defaults:

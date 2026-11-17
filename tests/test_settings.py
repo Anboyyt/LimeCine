@@ -24,30 +24,30 @@ class SettingsTest(unittest.TestCase):
             path = _write(d, """
 servers:
   lime:
-    url: http://192.168.5.133:886
+    url: http://192.168.1.10:886
     api_key: ${TEST_KEY}
   art:
-    url: ${ART_URL:-http://192.168.5.133:888}
+    url: ${ART_URL:-http://192.168.1.10:888}
     api_key: ${ART_KEY}
 """)
             cfg = settings.load_config(path, env={"TEST_KEY": "abc", "ART_KEY": "def"},
                                        write_migrated=False)
             self.assertEqual([s.id for s in cfg.servers], ["lime", "art"])
             self.assertEqual(cfg.servers[0].api_key, "abc")
-            self.assertEqual(cfg.servers[1].url, "http://192.168.5.133:888")
+            self.assertEqual(cfg.servers[1].url, "http://192.168.1.10:888")
 
     def test_server_list_form_and_ids(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             path = _write(d, """
 servers:
   - name: LiMe
-    url: 192.168.5.133:886
+    url: 192.168.1.10:886
     api_key: k1
   - url: http://10.0.0.2:8096
 """)
             cfg = settings.load_config(path, env={}, write_migrated=False)
             self.assertEqual(cfg.servers[0].id, "lime")
-            self.assertEqual(cfg.servers[0].url, "http://192.168.5.133:886")
+            self.assertEqual(cfg.servers[0].url, "http://192.168.1.10:886")
             self.assertEqual(cfg.servers[1].id, "10-0-0-2-8096")
 
     def test_resolve_library_priority(self) -> None:
@@ -106,7 +106,7 @@ schedule: {enabled: true, time: "03:00"}
         with tempfile.TemporaryDirectory() as d:
             legacy = Path(d) / "settings.json"
             legacy.write_text(json.dumps({
-                "base_url": "http://192.168.5.133:886",
+                "base_url": "http://192.168.1.10:886",
                 "api_key": "secret",
                 "style": "static_2",
                 "resolution": "720p",

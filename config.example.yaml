@@ -8,7 +8,7 @@
 
 servers:
   lime:
-    url: http://192.168.5.133:886
+    url: http://192.168.1.10:886
     api_key: ${LIME_API_KEY}
     # name: LiMe               # 显示名，默认用上面的 key
     # write_back: true         # 是否允许写回库封面
@@ -16,7 +16,7 @@ servers:
     # schedule: "04:30"        # 单独覆盖定时；也可写成 {enabled: true, time: "04:30"}
 
   # art:
-  #   url: http://192.168.5.133:888
+  #   url: http://192.168.1.10:888
   #   api_key: ${ART_LIME_API_KEY}
 
 defaults:
